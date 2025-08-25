@@ -32,7 +32,7 @@ if st.button("Generate Image"):
                     f.write(image_bytes)
 
                 # Display in Streamlit
-                st.image("generated_image.png", caption="Generated Image", use_column_width=True)
+                st.image("generated_image.png", caption="Generated Image", use_container_width=True)
 
         except Exception as e:
             st.error(f"Error: {e}")
