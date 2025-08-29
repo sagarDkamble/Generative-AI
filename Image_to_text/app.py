@@ -33,4 +33,4 @@ if uploaded_file is not None:
                     }
                 ]
             )
-            st.success(response.choices[0].message["content"])
+            st.success(response.choices[0].message.content)
