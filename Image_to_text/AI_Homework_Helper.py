@@ -42,6 +42,6 @@ if uploaded_file is not None:
                 ]
             )
 
-            answer = st.markdown(response.choices[0].message.content)
+            answer = response.choices[0].message.content
             st.markdown("### ✅ Solution")
-            st.markdown(answer)
+            st.write(answer)
