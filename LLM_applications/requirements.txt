@@ -3,6 +3,6 @@ streamlit-authenticator
 openai
 psycopg2-binary
 sqlalchemy
-python-dotenv
+#python-dotenv
 razorpay
 PyYAML
