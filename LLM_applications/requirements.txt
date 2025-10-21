@@ -1,22 +1,8 @@
-# Core framework
-streamlit==1.37.1
-
-# Authentication
-streamlit-authenticator==0.3.2
-
-# OpenAI LLM access
-openai>=1.13.3
-
-# Database (PostgreSQL + ORM)
-SQLAlchemy==2.0.25
-psycopg2-binary==2.9.9
-
-# Environment / YAML
-PyYAML==6.0.1
-python-dotenv==1.0.1
-
-# Payments
-razorpay==1.4.2
-
-# Utilities
-requests==2.31.0
+streamlit
+streamlit-authenticator
+openai
+psycopg2-binary
+sqlalchemy
+python-dotenv
+razorpay
+PyYAML
