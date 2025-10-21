@@ -33,12 +33,11 @@ APP_URL = st.secrets.get("APP_URL", "http://localhost:8501")
 # ---------------------------------------------------------------------
 # 👥 AUTHENTICATION CONFIGURATION
 # ---------------------------------------------------------------------
-try:
-    with open("auth_config.yaml") as f:
-        config = yaml.safe_load(f)
-except FileNotFoundError:
-    st.error("❌ 'auth_config.yaml' not found. Please ensure it's uploaded to your repository.")
-    st.stop()
+import os
+auth_path = os.path.join(os.path.dirname(__file__), "auth_config.yaml")
+with open(auth_path) as f:
+    config = yaml.safe_load(f)
+
 
 authenticator = stauth.Authenticate(
     config["credentials"],
