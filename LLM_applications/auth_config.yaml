@@ -1,0 +1,14 @@
+credentials:
+  usernames:
+    sagar:
+      email: sagar@example.com
+      name: Sagar Kamble
+      # "password" hashed using bcrypt via streamlit-authenticator Hasher
+      password: '$2b$12$gW2qZy2q7f6Qm3GxQm3GxO5Q9n2Qh9J.Y0kUuHqB3H0w7a0M0o8Re'  # replace with your own
+cookie:
+  expiry_days: 30
+  key: "cookie_signature_key"
+  name: "streamlit_auth"
+preauthorized:
+  emails:
+    - sagar@example.com

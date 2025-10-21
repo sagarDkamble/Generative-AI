@@ -1,0 +1,8 @@
+streamlit
+streamlit-authenticator
+openai
+psycopg2-binary
+sqlalchemy
+python-dotenv
+razorpay
+PyYAML
