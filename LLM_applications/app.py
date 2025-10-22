@@ -39,7 +39,7 @@ except FileNotFoundError:
 authenticator = stauth.Authenticate(
     credentials=config["credentials"],
     cookie_name=config["cookie"]["name"],
-    key=config["cookie"]["key"],
+    cookie_key=config["cookie"]["key"],
     cookie_expiry_days=config["cookie"]["expiry_days"]
 )
 
