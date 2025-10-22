@@ -26,129 +26,7 @@ RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
 # ----------------------------------------------------------
 # 2. Load authentication config (auth_config.yaml)
 # ----------------------------------------------------------
-try:
-    # Read YAML relative to this file so deployments find it even when working dir differs
-    cfg_path = os.path.join(os.path.dirname(__file__), "auth_config.yaml")
-    with open(cfg_path) as f:
-        config = yaml.load(f, Loader=SafeLoader)
-except FileNotFoundError:
-    st.error("❌ 'auth_config.yaml' not found. Please ensure it's uploaded to your repository.")
-    st.stop()
-
-# ----------------------------------------------------------
-# 3. Initialize authenticator (robust across streamlit-authenticator versions)
-# ----------------------------------------------------------
-# Different streamlit-authenticator versions use different ctor signatures/kw names.
-# Try the modern signature first (cookie_key), fall back to older alternatives.
-def _init_authenticator(cfg):
-    # Try modern (v0.3.x+) named args
-    try:
-        return stauth.Authenticate(
-            credentials=cfg["credentials"],
-            cookie_name=cfg["cookie"]["name"],
-            cookie_key=cfg["cookie"]["key"],
-            cookie_expiry_days=cfg["cookie"]["expiry_days"],
-        )
-    except TypeError:
-        pass
-
-    # Try alternative keyword 'key'
-    try:
-        return stauth.Authenticate(
-            credentials=cfg["credentials"],
-            cookie_name=cfg["cookie"]["name"],
-            key=cfg["cookie"]["key"],
-            cookie_expiry_days=cfg["cookie"]["expiry_days"],
-        )
-    except TypeError:
-        pass
-
-    # Last-resort: positional args used by very old versions
-    return stauth.Authenticate(
-        cfg["credentials"],
-        cfg["cookie"]["name"],
-        cfg["cookie"]["key"],
-        cfg["cookie"]["expiry_days"],
-    )
-
-
-authenticator = _init_authenticator(config)
-
-# ----------------------------------------------------------
-# 4. Login form (robust location handling)
-# ----------------------------------------------------------
-# streamlit-authenticator implementations require location to be one of:
-# 'main', 'sidebar', or 'unrendered'. Some versions accept `location` keyword.
-def _safe_login(auth):
-    # preferred: keyword argument
-    try:
-        return auth.login("Login", location="sidebar")
-    except TypeError:
-        # fallback: positional form
-        try:
-            return auth.login("Login", "main")
-        except Exception as e:
-            raise e
-    except Exception as e:
-        raise e
-
-try:
-    name, auth_status, username = _safe_login(authenticator)
-except Exception as e:
-    st.error(f"⚠️ Login error: {e}")
-    st.stop()
-
-# ----------------------------------------------------------
-# 5. Authenticated section
-# ----------------------------------------------------------
-if auth_status:
-    st.sidebar.success(f"Welcome {name} 👋")
-    # logout: try keyword then positional
-    try:
-        authenticator.logout("Logout", location="unrendered")
-    except TypeError:
-        try:
-            authenticator.logout("Logout", "unrendered")
-        except Exception:
-            # If logout fails for any reason, continue (it shouldn't break app)
-            pass
-
-    st.title("💬 GPT Personal Assistant")
-
-    if "history" not in st.session_state:
-        st.session_state.history = []  # chat history
-
-    user_prompt = st.chat_input("Ask me anything...")
-    if user_prompt:
-        st.chat_message("user").markdown(user_prompt)
-        st.session_state.history.append({"role": "user", "content": user_prompt})
-
-        with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                reply = get_gpt_response(user_prompt, st.session_state.history)
-                st.markdown(reply)
-
-        st.session_state.history.append({"role": "assistant", "content": reply})
-        save_message(username, "user", user_prompt)
-        save_message(username, "assistant", reply)
-
-    st.divider()
-    st.subheader("Upgrade to Pro 💳")
-    st.write("Unlock higher limits and priority access.")
-
-    if st.button("Proceed to Payment"):
-        order = create_razorpay_order(username)
-        st.session_state.razorpay_order = order
-        st.experimental_rerun()
-
-    if "razorpay_order" in st.session_state:
-        order = st.session_state.razorpay_order
-        st.info("Complete your payment below 👇")
-
-        checkout_html = f"""
-        <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-        <form>
-          <button id="rzp-button1" type="button">Pay Now</button>
+@@ -152,38 +151,98 @@ if auth_status:
         </form>
         <script>
         var options = {{
@@ -175,10 +53,72 @@ if auth_status:
         st.components.v1.html(checkout_html, height=200)
 
     qs = st.query_params
+    def _get_query_params():
+        """Return query parameters as {str: [str, ...]} across Streamlit versions."""
+
+        # Modern API (Streamlit 1.30+)
+        qs_obj = getattr(st, "query_params", None)
+        if qs_obj is not None:
+            try:
+                items = qs_obj.items()
+            except TypeError:
+                items = dict(qs_obj).items()
+
+            normalized = {}
+            for key, value in items:
+                if isinstance(value, (list, tuple)):
+                    normalized[key] = list(value)
+                elif value is None:
+                    normalized[key] = []
+                else:
+                    normalized[key] = [value]
+            return normalized
+
+        # Legacy experimental API (pre-1.30)
+        getter = getattr(st, "experimental_get_query_params", None)
+        if getter is None:
+            return {}
+        legacy_params = getter() or {}
+        return {key: list(value) for key, value in legacy_params.items()}
+
+    def _clear_query_params(*keys):
+        """Remove selected query parameters without breaking on Streamlit versions."""
+
+        qs_obj = getattr(st, "query_params", None)
+        if qs_obj is not None:
+            try:
+                if keys:
+                    for key in keys:
+                        if key in qs_obj:
+                            del qs_obj[key]
+                else:
+                    qs_obj.clear()
+                return
+            except Exception:
+                # Fall back to experimental API when mutation fails.
+                pass
+
+        getter = getattr(st, "experimental_get_query_params", None)
+        setter = getattr(st, "experimental_set_query_params", None)
+        if getter is None or setter is None:
+            return
+
+        remaining = getter() or {}
+        if keys:
+            for key in keys:
+                remaining.pop(key, None)
+        else:
+            remaining = {}
+        setter(**remaining)
+
+    qs = _get_query_params()
     if qs.get("payment_status") == ["paid"] and "order_id" in qs:
         order_id = qs["order_id"][0] if isinstance(qs["order_id"], list) else qs["order_id"]
+        order_id_values = qs["order_id"]
+        order_id = order_id_values[0] if isinstance(order_id_values, list) else order_id_values
         mark_order_paid(order_id)
         st.success("✅ Payment successful! You are now on the Pro plan.")
+        _clear_query_params("payment_status", "order_id")
 
 # ----------------------------------------------------------
 # 6. Invalid / No authentication
