@@ -6,5 +6,5 @@ razorpay
 sqlalchemy
 psycopg2-binary
 openai==0.28
-streamlit-oauth==0.3.3
+streamlit-oauth
 requests
