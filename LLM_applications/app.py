@@ -61,7 +61,7 @@ REFRESH_TOKEN_URL = TOKEN_URL
 oauth2 = OAuth2Component(
     client_id=CLIENT_ID,
     client_secret=CLIENT_SECRET,
-    authorize_url=AUTHORIZATION_URL,
+    auth_url=AUTHORIZATION_URL,
     token_url=TOKEN_URL,
     refresh_token_url=REFRESH_TOKEN_URL,
 )
