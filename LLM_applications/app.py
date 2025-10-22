@@ -1,20 +1,18 @@
-import os
-import yaml
-import json
 import streamlit as st
+import yaml
 from yaml.loader import SafeLoader
-from dotenv import load_dotenv
 import streamlit_authenticator as stauth
-from streamlit_oauth import OAuth2Component
+from dotenv import load_dotenv
+import os
 
-# --- Local imports ---
+# --- Optional helper imports (keep or remove based on your project) ---
 from gpt_service import get_gpt_response
 from db_service import save_message, init_db, mark_order_paid
 from billing_service import create_razorpay_order
 
 
 # ----------------------------------------------------------
-# 1️⃣ Basic setup
+# 1️⃣  Basic setup
 # ----------------------------------------------------------
 st.set_page_config(page_title="AI Personal Assistant", page_icon="🤖", layout="wide")
 load_dotenv()
@@ -23,97 +21,62 @@ init_db()
 APP_URL = os.getenv("APP_URL", "http://localhost:8501")
 RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
 
+
 # ----------------------------------------------------------
-# 2️⃣ Load authentication YAML (for username/password)
+# 2️⃣  Load authentication YAML
 # ----------------------------------------------------------
 try:
     with open("auth_config.yaml") as f:
         config = yaml.load(f, Loader=SafeLoader)
 except FileNotFoundError:
-    st.error("❌ 'auth_config.yaml' not found — make sure it's uploaded in the same folder as app.py.")
+    st.error("❌ 'auth_config.yaml' not found — upload it in the same folder as app.py.")
     st.stop()
 
+
 # ----------------------------------------------------------
-# 3️⃣ Initialize authenticator (for v0.3.3+)
+# 3️⃣  Initialize Authenticator (for v0.3.3+)
 # ----------------------------------------------------------
 authenticator = stauth.Authenticate(
-    credentials=config["credentials"],
-    cookie_name=config["cookie"]["name"],
-    cookie_key=config["cookie"]["key"],
-    cookie_expiry_days=config["cookie"]["expiry_days"]
+    config["credentials"],
+    config["cookie"]["name"],
+    config["cookie"]["key"],
+    config["cookie"]["expiry_days"],
+    config["preauthorized"]
 )
 
+
 # ----------------------------------------------------------
-# 4️⃣ Initialize Google OAuth2 (Sign in with Google)
+# 4️⃣  Login / Register Section
 # ----------------------------------------------------------
+st.title("🤖 AI Personal Assistant Login")
+
 try:
-    CLIENT_ID = st.secrets["GOOGLE_CLIENT_ID"]
-    CLIENT_SECRET = st.secrets["GOOGLE_CLIENT_SECRET"]
-    REDIRECT_URI = st.secrets["REDIRECT_URI"]
-except Exception:
-    st.warning("⚠️ Google OAuth credentials not found in Streamlit secrets.")
-    CLIENT_ID = CLIENT_SECRET = REDIRECT_URI = None
+    name, auth_status, username = authenticator.login(location="main")
+except Exception as e:
+    st.error(f"⚠️ Login error: {e}")
+    st.stop()
 
-AUTHORIZATION_URL = "https://accounts.google.com/o/oauth2/auth"
-TOKEN_URL = "https://oauth2.googleapis.com/token"
-REFRESH_TOKEN_URL = TOKEN_URL
-
-oauth2 = OAuth2Component(
-    client_id=CLIENT_ID,
-    client_secret=CLIENT_SECRET,
-    authorize_url=AUTHORIZATION_URL,
-    token_url=TOKEN_URL,
-    refresh_token_url=REFRESH_TOKEN_URL,
-)
-
-# ----------------------------------------------------------
-# 5️⃣ Show Login Options
-# ----------------------------------------------------------
-st.title("🤖 AI Personal Assistant")
-
-tab1, tab2 = st.tabs(["🔑 Login with Account", "🌐 Login with Google"])
-
-with tab1:
+# --- Registration (for new users you approve manually in YAML or via register_user API) ---
+with st.expander("🆕 New User? Register Here"):
     try:
-        name, auth_status, username = authenticator.login(location="main")
+        email_of_registered_user, username_of_registered_user, name_of_registered_user = authenticator.register_user(
+            location="main",
+            preauthorization=False  # set True to allow auto-approve for emails listed under 'preauthorized'
+        )
+        if email_of_registered_user:
+            st.success("✅ User registered! You can now log in.")
     except Exception as e:
-        st.error(f"⚠️ Login error: {e}")
-        st.stop()
+        st.warning(f"⚠️ Registration error: {e}")
 
-with tab2:
-    if CLIENT_ID and CLIENT_SECRET:
-        if "google_token" not in st.session_state:
-            result = oauth2.authorize_button(
-                name="Continue with Google",
-                icon="https://developers.google.com/identity/images/g-logo.png",
-                redirect_uri=REDIRECT_URI,
-                scope="openid email profile",
-                key="google",
-            )
-
-            if result:
-                st.session_state.google_token = result.get("token")
-                st.experimental_rerun()
-
-        if "google_token" in st.session_state:
-            google_info = oauth2.get_user_info(st.session_state.google_token)
-            auth_status = True
-            name = google_info.get("name", "Google User")
-            username = google_info.get("email", "unknown")
-            st.success(f"✅ Logged in as {name} ({username}) via Google")
-
-            if st.button("Logout"):
-                del st.session_state["google_token"]
-                st.experimental_rerun()
 
 # ----------------------------------------------------------
-# 6️⃣ If user authenticated
+# 5️⃣  If logged in successfully
 # ----------------------------------------------------------
 if auth_status:
     st.sidebar.success(f"Welcome {name} 👋")
     authenticator.logout("Logout", location="sidebar")
 
-    st.title("💬 GPT Personal Assistant")
+    st.header("💬 Chat with Your AI Assistant")
 
     if "history" not in st.session_state:
         st.session_state.history = []
@@ -157,25 +120,24 @@ if auth_status:
             "description": "Pro Plan Access",
             "order_id": "{order['id']}",
             "callback_url": "{APP_URL}?payment_status=paid&order_id={order['id']}",
-            "prefill": {{"name": "{name}", "email": "{username}"}},
             "theme": {{"color": "#3399cc"}}
         }};
         var rzp1 = new Razorpay(options);
-        document.getElementById('rzp-button1').onclick = function(e) {{
-            rzp1.open(); e.preventDefault();
-        }}
+        document.getElementById('rzp-button1').onclick = function(e) {{ rzp1.open(); e.preventDefault(); }}
         </script>
         """
         st.components.v1.html(checkout_html, height=220)
 
+    # Payment success callback
     qs = st.query_params
     if qs.get("payment_status") == ["paid"] and "order_id" in qs:
         order_id = qs["order_id"][0] if isinstance(qs["order_id"], list) else qs["order_id"]
         mark_order_paid(order_id)
-        st.success("✅ Payment successful! You are now on the Pro plan.")
+        st.success("✅ Payment successful! You’re now on the Pro plan.")
+
 
 # ----------------------------------------------------------
-# 7️⃣ If login failed or not attempted
+# 6️⃣  If login failed or not attempted
 # ----------------------------------------------------------
 elif auth_status is False:
     st.error("❌ Invalid username or password.")
