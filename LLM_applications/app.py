@@ -49,7 +49,8 @@ authenticator = stauth.Authenticate(
 # 4️⃣  Login form (center of page)
 # ----------------------------------------------------------
 try:
-    name, auth_status, username = authenticator.login("Login", location="main")
+    name, auth_status, username = authenticator.login(location="main")
+
 except Exception as e:
     st.error(f"⚠️ Login error: {e}")
     st.stop()
