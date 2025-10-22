@@ -1,59 +1,78 @@
 import os
 import yaml
+import json
 import streamlit as st
 from yaml.loader import SafeLoader
 import streamlit_authenticator as stauth
 from dotenv import load_dotenv
+
+# 🔧 Local imports
 from gpt_service import get_gpt_response
 from db_service import save_message, init_db, mark_order_paid
 from billing_service import create_razorpay_order
 
-# -------------------------------------------------------
-# 🔧 INITIAL SETUP
-# -------------------------------------------------------
-st.set_page_config(page_title="AI Personal Assistant", page_icon="🤖", layout="wide")
 
-# Load secrets (Streamlit Cloud provides these automatically)
+# ----------------------------------------------------------
+# 🧠 1. Basic setup
+# ----------------------------------------------------------
+st.set_page_config(page_title="AI Personal Assistant", page_icon="🤖", layout="wide")
 load_dotenv()
 init_db()
 
-APP_URL = st.secrets.get("APP_URL", "http://localhost:8501")
-RAZORPAY_KEY_ID = st.secrets["RAZORPAY_KEY_ID"]
+# Environment variables (from Streamlit Secrets or local .env)
+APP_URL = os.getenv("APP_URL", "http://localhost:8501")
+RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
 
-# -------------------------------------------------------
-# 🔐 AUTHENTICATION CONFIG
-# -------------------------------------------------------
-auth_path = os.path.join(os.path.dirname(__file__), "auth_config.yaml")
-if not os.path.exists(auth_path):
-    st.error("'auth_config.yaml' not found. Please ensure it's uploaded to your repository.")
+# ----------------------------------------------------------
+# 🔐 2. Load authentication config (auth_config.yaml)
+# ----------------------------------------------------------
+try:
+    with open("auth_config.yaml") as f:
+        config = yaml.load(f, Loader=SafeLoader)
+except FileNotFoundError:
+    st.error("❌ 'auth_config.yaml' not found. Please ensure it's uploaded to your repository.")
     st.stop()
 
-with open(auth_path) as f:
-    config = yaml.load(f, Loader=SafeLoader)
+# ----------------------------------------------------------
+# 🧩 3. Initialize authenticator (handles both APIs)
+# ----------------------------------------------------------
+try:
+    # ✅ New API (v0.3.3+)
+    authenticator = stauth.Authenticate(
+        credentials=config["credentials"],
+        cookie_name=config["cookie"]["name"],
+        cookie_key=config["cookie"]["key"],
+        cookie_expiry_days=config["cookie"]["expiry_days"]
+    )
+except TypeError:
+    # 🕹️ Fallback for older versions (≤0.2.3)
+    authenticator = stauth.Authenticate(
+        config["credentials"],
+        config["cookie"]["name"],
+        config["cookie"]["key"],
+        config["cookie"]["expiry_days"]
+    )
 
-# ✅ Updated for streamlit-authenticator v0.3.3+
-authenticator = stauth.Authenticate(
-    credentials=config["credentials"],
-    cookie_name=config["cookie"]["name"],
-    key=config["cookie"]["key"],
-    cookie_expiry_days=config["cookie"]["expiry_days"]
-)
+# ----------------------------------------------------------
+# 🔑 4. Login form
+# ----------------------------------------------------------
+try:
+    name, auth_status, username = authenticator.login("Login", "main")
+except Exception as e:
+    st.error(f"⚠️ Login error: {e}")
+    st.stop()
 
-# New API: keyword args required
-name, auth_status, username = authenticator.login(
-    form_name="Login",
-    location="main"
-)
-
-# -------------------------------------------------------
-# 🧠 MAIN APPLICATION
-# -------------------------------------------------------
+# ----------------------------------------------------------
+# 💬 5. Authenticated section
+# ----------------------------------------------------------
 if auth_status:
     st.sidebar.success(f"Welcome {name} 👋")
+    authenticator.logout("Logout", "sidebar")
+
     st.title("💬 GPT Personal Assistant")
 
     if "history" not in st.session_state:
-        st.session_state.history = []
+        st.session_state.history = []  # chat history
 
     user_prompt = st.chat_input("Ask me anything...")
     if user_prompt:
@@ -80,9 +99,8 @@ if auth_status:
 
     if "razorpay_order" in st.session_state:
         order = st.session_state.razorpay_order
-        st.info("Complete your payment in the Razorpay modal below.")
+        st.info("Complete your payment below 👇")
 
-        # Razorpay Checkout widget
         checkout_html = f"""
         <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
         <form>
@@ -112,16 +130,16 @@ if auth_status:
         """
         st.components.v1.html(checkout_html, height=200)
 
-    # ✅ Payment callback
     qs = st.query_params
     if qs.get("payment_status") == ["paid"] and "order_id" in qs:
         order_id = qs["order_id"][0] if isinstance(qs["order_id"], list) else qs["order_id"]
         mark_order_paid(order_id)
-        st.success("✅ Payment successful! Your plan is now Pro.")
+        st.success("✅ Payment successful! You are now on the Pro plan.")
 
-    authenticator.logout("Logout", "sidebar")
-
+# ----------------------------------------------------------
+# 🚫 6. Invalid / No authentication
+# ----------------------------------------------------------
 elif auth_status is False:
-    st.error("Invalid username or password")
+    st.error("❌ Invalid username or password")
 else:
     st.warning("Please log in to continue")
