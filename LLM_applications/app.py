@@ -82,7 +82,7 @@ authenticator = _init_authenticator(config)
 def _safe_login(auth):
     # preferred: keyword argument
     try:
-        return auth.login("Login", location="main")
+        return auth.login("Login", location="sidebar")
     except TypeError:
         # fallback: positional form
         try:
