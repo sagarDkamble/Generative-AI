@@ -27,31 +27,46 @@ RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
 # 🔐 2. Load authentication config (auth_config.yaml)
 # ----------------------------------------------------------
 try:
-    with open("auth_config.yaml") as f:
+    # Read YAML relative to this file so deployments find it even when working dir differs
+    cfg_path = os.path.join(os.path.dirname(__file__), "auth_config.yaml")
+    with open(cfg_path) as f:
         config = yaml.load(f, Loader=SafeLoader)
 except FileNotFoundError:
     st.error("❌ 'auth_config.yaml' not found. Please ensure it's uploaded to your repository.")
     st.stop()
 
 # ----------------------------------------------------------
-# 🧩 3. Initialize authenticator (handles both APIs)
+# 🧩 3. Initialize authenticator (handles multiple versions)
 # ----------------------------------------------------------
+# Different streamlit-authenticator releases expect different parameter names:
+# - newer (v0.3.3+) expects cookie_key, cookie_name, cookie_expiry_days, credentials=...
+# - some older ones used key or positional args
+# We'll attempt the most common/newer signature first, then fall back.
 try:
-    # ✅ New API (v0.3.3+)
+    # Preferred (newer API)
     authenticator = stauth.Authenticate(
         credentials=config["credentials"],
         cookie_name=config["cookie"]["name"],
         cookie_key=config["cookie"]["key"],
         cookie_expiry_days=config["cookie"]["expiry_days"]
     )
-except TypeError:
-    # 🕹️ Fallback for older versions (≤0.2.3)
-    authenticator = stauth.Authenticate(
-        config["credentials"],
-        config["cookie"]["name"],
-        config["cookie"]["key"],
-        config["cookie"]["expiry_days"]
-    )
+except TypeError as e1:
+    try:
+        # Some versions expect 'key' rather than 'cookie_key'
+        authenticator = stauth.Authenticate(
+            credentials=config["credentials"],
+            cookie_name=config["cookie"]["name"],
+            key=config["cookie"]["key"],
+            cookie_expiry_days=config["cookie"]["expiry_days"]
+        )
+    except TypeError:
+        # Last-resort: positional arguments used by very old versions
+        authenticator = stauth.Authenticate(
+            config["credentials"],
+            config["cookie"]["name"],
+            config["cookie"]["key"],
+            config["cookie"]["expiry_days"]
+        )
 
 # ----------------------------------------------------------
 # 🔑 4. Login form
