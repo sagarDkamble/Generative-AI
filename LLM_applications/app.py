@@ -105,10 +105,10 @@ if auth_status:
     st.sidebar.success(f"Welcome {name} 👋")
     # logout: try keyword then positional
     try:
-        authenticator.logout("Logout", location="sidebar")
+        authenticator.logout("Logout", location="unrendered")
     except TypeError:
         try:
-            authenticator.logout("Logout", "sidebar")
+            authenticator.logout("Logout", "unrendered")
         except Exception:
             # If logout fails for any reason, continue (it shouldn't break app)
             pass
