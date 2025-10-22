@@ -1,4 +1,4 @@
-streamlit=>1.50.0
+streamlit==1.33.0
 streamlit-authenticator==0.3.3
 streamlit-oauth
 PyYAML
@@ -6,5 +6,5 @@ python-dotenv
 razorpay
 sqlalchemy
 psycopg2-binary
-openai==0.28
+openai
 requests
