@@ -6,3 +6,5 @@ razorpay
 sqlalchemy
 psycopg2-binary
 openai
+streamlit-oauth
+requests
