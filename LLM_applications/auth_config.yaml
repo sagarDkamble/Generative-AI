@@ -10,6 +10,6 @@ cookie:
   key: "random_signature_key"  # can be any random string
   name: "llm_assistant_cookie"
 
-preauthorized:
+pre_authorization:
   emails:
     - "sgrkamble0@gmail.com"
