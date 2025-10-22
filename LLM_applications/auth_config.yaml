@@ -3,7 +3,7 @@ credentials:
     sagar:
       email: "sgrkamble0@gmail.com"
       name: "Dr. Sagar D. Kamble"
-      password: "$2b$12$FSC5K5b2iQMCN4lbz8K5YObiRODJ5Pn3E.qbWlIu0dJ8zRVn.V0.q"  # hashed password
+      password: "$2b$12$FSC5K5b2iQMCN4lbz8K5YObiRODJ5Pn3E.qbWlIu0dJ8zRVn.V0.q"  # hashed  password
 
 cookie:
   expiry_days: 30
