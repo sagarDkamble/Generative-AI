@@ -1,0 +1,15 @@
+credentials:
+  usernames:
+    sagar:
+      email: "sgrkamble0@gmail.com"
+      name: "Dr. Sagar D. Kamble"
+      password: "$2b$12$FSC5K5b2iQMCN4lbz8K5YObiRODJ5Pn3E.qbWlIu0dJ8zRVn.V0.q"  # hashed  password
+
+cookie:
+  expiry_days: 30
+  key: "random_signature_key"  # can be any random string
+  name: "llm_assistant_cookie"
+
+preauthorized:
+  emails:
+    - "sgrkamble0@gmail.com"
